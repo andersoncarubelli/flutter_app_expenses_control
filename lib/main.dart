@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart';
 import 'package:flutter_app_expenses_control/widgets/chart.dart';
 import 'package:flutter_app_expenses_control/widgets/new_transaction.dart';
 import 'package:flutter_app_expenses_control/models/transaction.dart';
@@ -48,9 +50,11 @@ class MyHomePage extends StatefulWidget {
 class _MyHomePageState extends State<MyHomePage> {
 
   final List<Transaction> _userTransactions = [
-    Transaction(id: 't1', title: 'new shoes', amount: 69.99, date: DateTime.now()),
-    Transaction(id: 't2', title: 'groceriers', amount: 16.99, date: DateTime.now())
+    //Transaction(id: 't1', title: 'new shoes', amount: 69.99, date: DateTime.now()),
+    //Transaction(id: 't2', title: 'groceriers', amount: 16.99, date: DateTime.now())
   ];
+
+  bool _showChart = false;
 
   List <Transaction> get _recentTransactions {
     return _userTransactions.where((tx){
@@ -88,28 +92,93 @@ class _MyHomePageState extends State<MyHomePage> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-        appBar: AppBar(
-          title: Text('Suas despesas', style: TextStyle(fontFamily: 'OpenSans')),
-          actions: <Widget>[
-            IconButton(icon: Icon(Icons.add), onPressed: () => _startAddNewTransaction(context),)
-          ],
-        ),
-        body: SingleChildScrollView(
+    final mediaQuery = MediaQuery.of(context);
+    final isLandscape =  mediaQuery.orientation == Orientation.landscape;
+
+    final PreferredSizeWidget appBar = Platform.isIOS ? CupertinoNavigationBar(
+      middle: Text('Suas despesas'),
+      trailing: Row( 
+        mainAxisSize: MainAxisSize.min,
+        children: <Widget>[
+          GestureDetector(
+            child: Icon(CupertinoIcons.add),
+            onTap: () => _startAddNewTransaction(context)
+          )
+        ],
+      ),
+    )
+    : AppBar(
+      title: Text('Suas despesas', style: TextStyle(fontFamily: 'OpenSans')),
+      actions: <Widget>[
+        IconButton(icon: Icon(Icons.add), onPressed: () => _startAddNewTransaction(context),)
+      ],
+    );
+
+    final txListWidget = Container(
+      height: (
+        mediaQuery.size.height - 
+          appBar.preferredSize.height - 
+          mediaQuery.padding.top
+      ) * 0.7,
+      child: TransactionList(_userTransactions, _deleteTransaction)
+    ); 
+    
+
+    final pageBody = SafeArea(child: SingleChildScrollView(
             child: Column(
           //mainAxisAlignment: MainAxisAlignment.spaceAround,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: <Widget>[
-            Chart(_recentTransactions),
-            TransactionList(_userTransactions, _deleteTransaction) 
+            if (isLandscape) Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children:<Widget>[
+                Text('Show Chart', style: Theme.of(context).textTheme.title),
+                Switch.adaptive(
+                  activeColor: Theme.of(context).accentColor,
+                  value: _showChart, onChanged: (val){
+                  setState(() {
+                    _showChart = val;
+                  });
+                }),
+              ]),
+            if (!isLandscape) Container(
+              height: (
+                mediaQuery.size.height - 
+                appBar.preferredSize.height -
+                mediaQuery.padding.top
+              ) * 0.3,
+              child: Chart(_recentTransactions)
+            ),
+
+            if(!isLandscape) txListWidget,
+
+            if(isLandscape) _showChart ? Container(
+              height: (
+                mediaQuery.size.height - 
+                appBar.preferredSize.height -
+                mediaQuery.padding.top
+              ) * 0.7,
+              child: Chart(_recentTransactions)
+            )
+            : txListWidget
           ],
         )
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
-      floatingActionButton: FloatingActionButton(
+      )
+      );
+    
+
+    return Platform.isIOS ? CupertinoPageScaffold(
+      child: pageBody,
+      navigationBar: appBar,
+      ) 
+      : Scaffold(
+        appBar: appBar,
+        body: pageBody,
+        floatingActionButtonLocation: FloatingActionButtonLocation.centerFloat,
+        floatingActionButton: Platform.isIOS ? Container() : FloatingActionButton(
         child: Icon(Icons.add),
         onPressed: () => _startAddNewTransaction(context),
-      ),
+      )
     );
   }
 }
